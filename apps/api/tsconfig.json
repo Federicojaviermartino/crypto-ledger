@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "target": "ES2021",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    // "baseUrl": ".",
+    "paths": {
+      "@ledger/shared": [
+        "../../packages/shared/src"
+      ],
+      "@ledger/shared/*": [
+        "../../packages/shared/src/*"
+      ]
+    }
+  }
+}

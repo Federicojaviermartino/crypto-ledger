@@ -1,0 +1,20 @@
+{
+  "name": "@ledger/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prisma:generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "seed": "ts-node src/seed.ts",
+    "apply:triggers": "ts-node src/apply-triggers.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.18.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.18.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}

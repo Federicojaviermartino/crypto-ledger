@@ -1,0 +1,21 @@
+{
+  "name": "@ledger/reports",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -w -p tsconfig.json",
+    "test": "echo \"No tests\" && exit 0",
+    "lint": "echo \"No lint\" && exit 0",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.18.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

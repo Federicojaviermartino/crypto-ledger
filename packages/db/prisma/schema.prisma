@@ -1,0 +1,864 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// CORE ACCOUNTING - Double-Entry Ledger with Hash Chain
+// ============================================================================
+
+/**
+ * Journal Entry - Immutable transaction record with hash chain
+ * Each entry must balance (debits = credits)
+ */
+model JournalEntry {
+  id          String   @id @default(cuid())
+  date        DateTime
+  description String
+  reference   String?
+  
+  // Hash chain for immutability (SHA-256)
+  hash        String   @unique
+  prevHash    String?
+  
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  postings    Posting[]
+  blockchainEvents BlockchainEvent[]
+  sourceLots       Lot[]         @relation("LotSource")
+  lotDisposals     LotDisposal[] @relation("LotDisposal")
+  invoices        Invoice[]
+  bankTransactions BankTransaction[]
+
+  @@index([date])
+  @@index([hash])
+  @@index([createdAt])
+}
+
+/**
+ * Posting - Individual debit/credit line item
+ * Part of double-entry system
+ */
+model Posting {
+  id          String  @id @default(cuid())
+  entryId     String
+  accountId   String
+  
+  debit       Float   @default(0)
+  credit      Float   @default(0)
+  description String?
+  
+  metadata    Json    @default("{}")
+
+  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account     Account      @relation(fields: [accountId], references: [id])
+  dimensions  PostingDimension[]
+
+  @@index([entryId])
+  @@index([accountId])
+}
+
+/**
+ * Chart of Accounts
+ */
+model Account {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  type        String   // "asset", "liability", "equity", "revenue", "expense"
+  
+  parentId    String?
+  isActive    Boolean  @default(true)
+  
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent      Account?  @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children    Account[] @relation("AccountHierarchy")
+  postings    Posting[]
+  entityId        String?
+  entity          Entity?  @relation(fields: [entityId], references: [id])
+  bankAccounts    BankAccount[]
+  
+  @@index([code])
+  @@index([type])
+  @@index([parentId])
+}
+
+// ============================================================================
+// DIMENSIONAL ACCOUNTING - 7 First-Class Dimensions
+// ============================================================================
+
+/**
+ * Dimension definition (e.g., "Legal Entity", "Cost Center")
+ */
+model Dimension {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  
+  isActive    Boolean  @default(true)
+  
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  values      DimensionValue[]
+
+  @@index([code])
+}
+
+/**
+ * Dimension values (e.g., "US-001", "EU-002" for Legal Entity)
+ */
+model DimensionValue {
+  id          String   @id @default(cuid())
+  dimensionId String
+  code        String
+  name        String
+  description String?
+  
+  isActive    Boolean  @default(true)
+  
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  dimension   Dimension @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
+  postings    PostingDimension[]
+
+  @@unique([dimensionId, code])
+  @@index([dimensionId])
+  @@index([code])
+}
+
+/**
+ * Junction table: Posting <-> Dimension Values
+ */
+model PostingDimension {
+  id               String @id @default(cuid())
+  postingId        String
+  dimensionValueId String
+
+  posting          Posting        @relation(fields: [postingId], references: [id], onDelete: Cascade)
+  dimensionValue   DimensionValue @relation(fields: [dimensionValueId], references: [id], onDelete: Cascade)
+
+  @@unique([postingId, dimensionValueId])
+  @@index([postingId])
+  @@index([dimensionValueId])
+}
+
+// ============================================================================
+// SNAPSHOTS - Point-in-Time Balance Storage
+// ============================================================================
+
+/**
+ * Account snapshots for fast balance queries
+ */
+model AccountSnapshot {
+  id          String   @id @default(cuid())
+  accountId   String
+  asOfDate    DateTime
+  
+  debit       Float
+  credit      Float
+  balance     Float
+  
+  createdAt   DateTime @default(now())
+
+  account     Account  @relation(fields: [accountId], references: [id])
+
+  @@unique([accountId, asOfDate])
+  @@index([asOfDate])
+}
+
+/**
+ * Dimensional snapshots for multi-axis reporting
+ */
+model DimensionalSnapshot {
+  id          String   @id @default(cuid())
+  accountId   String
+  asOfDate    DateTime
+  
+  dimensions  Json     // { "legal_entity": "US-001", "cost_center": "CC-SALES" }
+  
+  debit       Float
+  credit      Float
+  balance     Float
+  
+  createdAt   DateTime @default(now())
+
+  @@index([accountId, asOfDate])
+  @@index([asOfDate])
+}
+
+// ============================================================================
+// BLOCKCHAIN INTEGRATION - Ethereum Event Indexing
+// ============================================================================
+
+/**
+ * Blockchain Event - Indexed transaction from chain
+ * Tracks transfers, swaps, approvals, etc.
+ */
+model BlockchainEvent {
+  id              String   @id @default(cuid())
+  chain           String   // "ethereum", "polygon", "arbitrum"
+  network         String   // "mainnet", "goerli", "sepolia"
+  
+  // Transaction details
+  txHash          String
+  blockNumber     BigInt
+  blockTimestamp  DateTime
+  logIndex        Int
+  
+  // Event details
+  eventType       String   // "transfer", "swap", "approval"
+  from            String   // Address
+  to              String   // Address
+  asset           String?  // Token symbol or "ETH"
+  tokenAddress    String?  // ERC-20 contract address
+  quantity        Float
+  
+  // Fees
+  feeAmount       Float    @default(0)
+  feeCurrency     String   @default("ETH")
+  
+  // Processing
+  processed       Boolean  @default(false)
+  classifiedAs    String?  // "deposit", "withdrawal", "trade", etc.
+  journalEntryId  String?
+  
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  journalEntry    JournalEntry? @relation(fields: [journalEntryId], references: [id])
+
+  @@unique([chain, network, txHash, logIndex])
+  @@index([chain, network, blockNumber])
+  @@index([processed])
+  @@index([from])
+  @@index([to])
+  @@index([blockTimestamp])
+}
+
+/**
+ * Classification Rule - Policy-as-code for event classification
+ * Loaded from YAML configuration
+ */
+model ClassificationRule {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  description     String?
+  priority        Int      @default(0)
+  
+  // Conditions (JSON logic)
+  conditions      Json     // { "direction": "inbound", "from": ["0x123..."] }
+  
+  // Actions
+  actions         Json     // [{ "type": "mark_trade", "params": {...} }]
+  
+  isActive        Boolean  @default(true)
+  
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  @@index([priority])
+}
+
+/**
+ * Price - Historical asset prices
+ */
+model Price {
+  id              String   @id @default(cuid())
+  asset           String   // "BTC", "ETH", "USDC"
+  quote           String   // "USD", "EUR"
+  
+  timestamp       DateTime
+  value           Float
+  source          String   // "coingecko", "chainlink", "manual"
+  
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  @@unique([asset, quote, timestamp, source])
+  @@index([asset, quote, timestamp])
+  @@index([timestamp])
+}
+
+/**
+ * Lot - FIFO cost basis tracking
+ */
+model Lot {
+  id              String   @id @default(cuid())
+  asset           String
+  quantity        Float
+  costBasis       Float    // Total cost in functional currency
+  costPerUnit     Float
+  
+  // Acquisition
+  acquiredAt      DateTime
+  acquiredFrom    String?  // "purchase", "mining", "staking", etc.
+  sourceEventId   String?  // BlockchainEvent ID
+  journalEntryId  String?
+  
+  // Current state
+  remainingQty    Float
+  disposed        Boolean  @default(false)
+  
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  sourceEvent     BlockchainEvent? @relation(fields: [sourceEventId], references: [id])
+  journalEntry    JournalEntry?    @relation("LotSource", fields: [journalEntryId], references: [id])
+  disposals       LotDisposal[]
+
+  @@index([asset, disposed])
+  @@index([acquiredAt])
+}
+
+/**
+ * Lot Disposal - FIFO disposal tracking
+ */
+model LotDisposal {
+  id              String   @id @default(cuid())
+  lotId           String
+  
+  quantityDisposed Float
+  proceedsPerUnit Float
+  totalProceeds   Float
+  
+  costBasisPerUnit Float
+  totalCostBasis  Float
+  
+  // Realized P&L
+  realizedPnL     Float
+  
+  disposedAt      DateTime
+  disposalEventId String?
+  journalEntryId  String?
+  
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  lot             Lot              @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  disposalEvent   BlockchainEvent? @relation(fields: [disposalEventId], references: [id])
+  journalEntry    JournalEntry?    @relation("LotDisposal", fields: [journalEntryId], references: [id])
+
+  @@index([lotId])
+  @@index([disposedAt])
+}
+
+// ============================================================================
+// MULTI-ENTITY CONSOLIDATION
+// ============================================================================
+
+/**
+ * Entity - Legal entity or subsidiary
+ */
+model Entity {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  currency        String   // Functional currency
+  
+  entityType      String   // "parent", "subsidiary", "branch"
+  country         String?
+  taxId           String?
+  
+  parentEntityId  String?
+  
+  isActive        Boolean  @default(true)
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  parent          Entity?  @relation("EntityHierarchy", fields: [parentEntityId], references: [id])
+  children        Entity[] @relation("EntityHierarchy")
+  accounts        Account[]
+  intercompanyFrom IntercompanyRelation[] @relation("EntityFrom")
+  intercompanyTo   IntercompanyRelation[] @relation("EntityTo")
+  issuedInvoices  Invoice[]
+  bankAccounts    BankAccount[]
+}
+
+/**
+ * Intercompany Relation - Tracks relationships between entities
+ */
+model IntercompanyRelation {
+  id              String   @id @default(cuid())
+  fromEntityId    String
+  toEntityId      String
+  
+  relationType    String   // "parent_sub", "sister", "branch"
+  
+  // Elimination accounts
+  receivableAccountId String?
+  payableAccountId    String?
+  
+  isActive        Boolean  @default(true)
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  fromEntity      Entity   @relation("EntityFrom", fields: [fromEntityId], references: [id])
+  toEntity        Entity   @relation("EntityTo", fields: [toEntityId], references: [id])
+
+  @@unique([fromEntityId, toEntityId])
+  @@index([fromEntityId])
+  @@index([toEntityId])
+}
+
+/**
+ * Exchange Rate - FX rates for consolidation
+ */
+model ExchangeRate {
+  id              String   @id @default(cuid())
+  fromCurrency    String
+  toCurrency      String
+  date            DateTime
+  rate            Float
+  
+  source          String   @default("manual") // "manual", "ecb", "fed"
+  
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  @@unique([fromCurrency, toCurrency, date])
+  @@index([fromCurrency, toCurrency, date])
+}
+
+/**
+ * Consolidation Run - Snapshot of consolidated financials
+ */
+model ConsolidationRun {
+  id              String   @id @default(cuid())
+  period          String   // "2025-01"
+  reportingCurrency String @default("USD")
+  
+  // Results
+  consolidatedData Json    // Trial balance, eliminations, etc.
+  
+  status          String   @default("completed") // "running", "completed", "failed"
+  
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  completedAt     DateTime?
+
+  @@unique([period, reportingCurrency])
+  @@index([period])
+}
+
+// ============================================================================
+// TAX COMPLIANCE - Spanish Facturae & SII
+// ============================================================================
+
+/**
+ * Invoice - AR/AP invoices with Facturae support
+ */
+model Invoice {
+  id              String   @id @default(cuid())
+  invoiceNumber   String   @unique
+  invoiceDate     DateTime
+  
+  // Type
+  invoiceType     String   // "380" (invoice), "381" (credit note)
+  direction       String   // "issued", "received"
+  
+  // Parties
+  supplierId      String
+  customerId      String
+  
+  // Amounts
+  subtotal        Float
+  taxAmount       Float
+  total           Float
+  currency        String   @default("EUR")
+  
+  // Payment
+  dueDate         DateTime?
+  paymentMethod   String?
+  
+  // Facturae (Spain)
+  facturaeFiled   Boolean  @default(false)
+  facturaeXml     String?  @db.Text
+  facturaeSignature String? @db.Text
+  
+  // SII (Spain)
+  siiStatus       String?  // "pending", "submitted", "accepted", "rejected"
+  siiSubmittedAt  DateTime?
+  siiResponse     Json?
+  
+  // Peppol (EU)
+  ublXml          String?  @db.Text
+  ublValidated    Boolean  @default(false)
+  
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  supplier        Party    @relation("SupplierInvoices", fields: [supplierId], references: [id])
+  customer        Party    @relation("CustomerInvoices", fields: [customerId], references: [id])
+  lines           InvoiceLine[]
+  journalEntry    JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  journalEntryId  String?
+
+  @@index([invoiceNumber])
+  @@index([invoiceDate])
+  @@index([siiStatus])
+}
+
+/**
+ * Invoice Line - Line items for invoices
+ */
+model InvoiceLine {
+  id              String   @id @default(cuid())
+  invoiceId       String
+  
+  lineNumber      Int
+  description     String
+  quantity        Float
+  unitPrice       Float
+  discount        Float    @default(0)
+  
+  subtotal        Float
+  taxRate         Float
+  taxAmount       Float
+  total           Float
+  
+  metadata        Json     @default("{}")
+
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+/**
+ * Party - Customer or Supplier
+ */
+model Party {
+  id              String   @id @default(cuid())
+  taxId           String   @unique  // NIF/CIF/VAT
+  name            String
+  
+  address         String?
+  city            String?
+  postalCode      String?
+  country         String   @default("ES")
+  
+  email           String?
+  phone           String?
+  
+  isCustomer      Boolean  @default(false)
+  isSupplier      Boolean  @default(false)
+  
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  issuedInvoices  Invoice[] @relation("SupplierInvoices")
+  receivedInvoices Invoice[] @relation("CustomerInvoices")
+
+  @@index([taxId])
+}
+
+// ============================================================================
+// RECONCILIATION - Bank & Wallet
+// ============================================================================
+
+/**
+ * Bank Account - For reconciliation
+ */
+model BankAccount {
+  id              String   @id @default(cuid())
+  accountNumber   String   @unique
+  bankName        String
+  currency        String   @default("EUR")
+  
+  glAccountId     String
+  entityId        String?
+  
+  isActive        Boolean  @default(true)
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  glAccount       Account  @relation(fields: [glAccountId], references: [id])
+  entity          Entity?  @relation(fields: [entityId], references: [id])
+  statements      BankStatement[]
+  reconciliations BankReconciliation[]
+
+  @@index([accountNumber])
+  @@index([glAccountId])
+}
+
+/**
+ * Bank Statement - Imported from CSV/camt.053
+ */
+model BankStatement {
+  id              String   @id @default(cuid())
+  bankAccountId   String
+  
+  statementDate   DateTime
+  openingBalance  Float
+  closingBalance  Float
+  
+  // File info
+  filename        String?
+  importedAt      DateTime @default(now())
+  
+  metadata        Json     @default("{}")
+
+  bankAccount     BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  transactions    BankTransaction[]
+
+  @@index([bankAccountId, statementDate])
+}
+
+/**
+ * Bank Transaction - Individual transaction from statement
+ */
+model BankTransaction {
+  id              String   @id @default(cuid())
+  statementId     String
+  
+  transactionDate DateTime
+  valueDate       DateTime
+  amount          Float
+  description     String
+  reference       String?
+  
+  // Reconciliation
+  matched         Boolean  @default(false)
+  matchedEntryId  String?
+  matchScore      Float?
+  
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  statement       BankStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  matchedEntry    JournalEntry? @relation(fields: [matchedEntryId], references: [id])
+  reconciliation  BankReconciliation?
+
+  @@index([statementId])
+  @@index([matched])
+  @@index([transactionDate])
+}
+
+/**
+ * Bank Reconciliation - Matched transactions
+ */
+model BankReconciliation {
+  id              String   @id @default(cuid())
+  bankAccountId   String
+  bankTransactionId String @unique
+  
+  reconciledAt    DateTime @default(now())
+  reconciledBy    String?
+  
+  matchType       String   // "automatic", "manual", "suggested"
+  confidence      Float    @default(0)
+  
+  notes           String?
+  
+  metadata        Json     @default("{}")
+
+  bankAccount     BankAccount     @relation(fields: [bankAccountId], references: [id])
+  bankTransaction BankTransaction @relation(fields: [bankTransactionId], references: [id], onDelete: Cascade)
+
+  @@index([bankAccountId])
+  @@index([reconciledAt])
+}
+
+// ============================================================================
+// ANALYTICS & METRICS
+// ============================================================================
+
+/**
+ * Columnar Snapshot - DuckDB snapshot metadata
+ */
+model ColumnarSnapshot {
+  id              String   @id @default(cuid())
+  asOfDate        DateTime
+  recordCount     Int
+  duckdbPath      String
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  createdBy       String?
+  fileSize        BigInt?
+  
+  metadata        Json     @default("{}")
+
+  @@unique([asOfDate])
+  @@index([asOfDate])
+}
+
+/**
+ * Anomaly - Detected anomalies in data
+ */
+model Anomaly {
+  id              String   @id @default(cuid())
+  type            String   // "unusual_amount", "balance_spike", "frequency_anomaly"
+  severity        String   // "low", "medium", "high", "critical"
+  
+  // Detection
+  detectedAt      DateTime @default(now())
+  resourceType    String   // "entry", "account", "transaction"
+  resourceId      String
+  
+  // Details
+  title           String
+  description     String
+  metrics         Json     // Statistical details
+  
+  // Status
+  status          String   @default("open") // "open", "investigating", "resolved"
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  resolution      String?
+  
+  metadata        Json     @default("{}")
+
+  @@index([type, severity])
+  @@index([status])
+  @@index([detectedAt])
+}
+
+/**
+ * Financial Metric - Calculated metrics
+ */
+model FinancialMetric {
+  id              String   @id @default(cuid())
+  metricType      String   // "burn_rate", "runway", "cash_ratio"
+  period          String   // "daily", "weekly", "monthly"
+  
+  asOfDate        DateTime
+  value           Float
+  previousValue   Float?
+  changePercent   Float?
+  
+  dimensions      Json?
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  @@unique([metricType, period, asOfDate])
+  @@index([metricType, asOfDate])
+}
+
+// ============================================================================
+// AUTHENTICATION & AUTHORIZATION
+// ============================================================================
+
+/**
+ * User - System users
+ */
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String
+  
+  firstName       String?
+  lastName        String?
+  
+  isActive        Boolean  @default(true)
+  emailVerified   Boolean  @default(false)
+  
+  lastLoginAt     DateTime?
+  
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  roles           UserRole[]
+  refreshTokens   RefreshToken[]
+  auditLogs       AuditLog[]
+
+  @@index([email])
+}
+
+/**
+ * Role - RBAC roles
+ */
+model Role {
+  id              String   @id @default(cuid())
+  name            String   @unique // "admin", "accountant", "auditor", "viewer"
+  description     String?
+  
+  permissions     Json     // Array of permission objects
+  
+  isActive        Boolean  @default(true)
+  
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  users           UserRole[]
+
+  @@index([name])
+}
+
+/**
+ * User Role - Many-to-many relationship
+ */
+model UserRole {
+  id              String   @id @default(cuid())
+  userId          String
+  roleId          String
+  
+  assignedAt      DateTime @default(now())
+  assignedBy      String?
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role            Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+/**
+ * Refresh Token - JWT refresh tokens
+ */
+model RefreshToken {
+  id              String   @id @default(cuid())
+  userId          String
+  token           String   @unique
+  
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  
+  revokedAt       DateTime?
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+/**
+ * Audit Log - Complete audit trail
+ */
+model AuditLog {
+  id              String   @id @default(cuid())
+  userId          String?
+  
+  action          String   // "create", "update", "delete", "read"
+  resource        String   // "entry", "account", "invoice"
+  resourceId      String?
+  
+  changes         Json?    // Before/after for updates
+  ipAddress       String?
+  userAgent       String?
+  
+  timestamp       DateTime @default(now())
+  
+  metadata        Json     @default("{}")
+
+  user            User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([resource, resourceId])
+  @@index([timestamp])
+}
