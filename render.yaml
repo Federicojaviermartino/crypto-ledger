@@ -5,14 +5,14 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: npm install --legacy-peer-deps && npx prisma generate && npm run build
+    buildCommand: npm install --legacy-peer-deps --no-optional && npx prisma generate && npm run build
     startCommand: npm run start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 3000
+        value: 10000
       - key: DATABASE_URL
         fromDatabase:
           name: crypto-ledger-db
@@ -39,6 +39,8 @@ services:
         value: info
       - key: FUNCTIONAL_CURRENCY
         value: USD
+      - key: DUCKDB_ENABLED
+        value: false
 
   # PostgreSQL Database
   - type: pgsql
