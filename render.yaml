@@ -4,9 +4,10 @@ services:
     name: crypto-ledger-api
     env: node
     region: oregon
-    plan: starter
-    buildCommand: npm install && npx prisma generate && npm run build
+    plan: free
+    buildCommand: npm install --legacy-peer-deps && npx prisma generate && npm run build
     startCommand: npm run start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
@@ -34,19 +35,16 @@ services:
         value: 7d
       - key: CORS_ORIGIN
         value: "*"
-      - key: ETH_RPC_URL
-        sync: false
-      - key: COINGECKO_API_KEY
-        sync: false
+      - key: LOG_LEVEL
+        value: info
       - key: FUNCTIONAL_CURRENCY
         value: USD
-    healthCheckPath: /api/health
 
   # PostgreSQL Database
   - type: pgsql
     name: crypto-ledger-db
     region: oregon
-    plan: starter
+    plan: free
     databaseName: crypto_ledger_prod
     databaseUser: ledger_user
 
@@ -54,5 +52,5 @@ services:
   - type: redis
     name: crypto-ledger-redis
     region: oregon
-    plan: starter
+    plan: free
     maxmemoryPolicy: allkeys-lru

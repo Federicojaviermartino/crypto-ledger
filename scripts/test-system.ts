@@ -4,7 +4,7 @@ const API_URL = 'http://localhost:3000/api';
 
 async function testSystem() {
   console.log('🧪 Testing Crypto-Ledger System\n');
-  console.log('=' .repeat(50));
+  console.log('='.repeat(50));
 
   try {
     // 1. Health Check
@@ -48,8 +48,7 @@ async function testSystem() {
 
     console.log('\n' + '='.repeat(50));
     console.log('🎉 All tests passed!');
-    console.log('=' .repeat(50));
-    
+    console.log('='.repeat(50));
   } catch (error: any) {
     console.error('\n❌ Test failed:', error.message);
     if (error.response) {
