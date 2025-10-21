@@ -3,18 +3,17 @@
     "target": "ES2022",
     "module": "commonjs",
     "lib": ["ES2022"],
-    "outDir": "./dist",
-    "rootDir": "./",
+    "outDir": "dist",
+    "rootDir": ".",
     "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "declaration": false,
-    "declarationMap": false,
     "sourceMap": false,
     "moduleResolution": "node",
-    "baseUrl": "./",
+    "baseUrl": ".",
     "paths": {
       "@crypto-ledger/db": ["packages/db/src"],
       "@crypto-ledger/shared/*": ["packages/shared/src/*"],
@@ -23,8 +22,9 @@
       "@crypto-ledger/analytics/*": ["packages/analytics/src/*"]
     },
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "allowSyntheticDefaultImports": true
   },
-  "include": ["apps/**/*", "packages/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.e2e-spec.ts"]
+  "include": ["apps/**/*.ts", "packages/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.e2e-spec.ts", "**/*.test.ts"]
 }

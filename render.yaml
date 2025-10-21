@@ -5,10 +5,7 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: |
-      npm install --legacy-peer-deps --no-optional
-      npx prisma generate
-      npx tsc --skipLibCheck
+    buildCommand: npm install --legacy-peer-deps --no-optional && npx prisma generate && npm run build
     startCommand: node dist/apps/api/main.js
     healthCheckPath: /api/health
     envVars:
