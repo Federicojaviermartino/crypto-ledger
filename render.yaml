@@ -1,11 +1,10 @@
 services:
-  # API Service
   - type: web
     name: crypto-ledger-api
     env: node
     region: oregon
     plan: free
-    buildCommand: npm install --legacy-peer-deps --no-optional && npx prisma generate && npm run build
+    buildCommand: npm ci --legacy-peer-deps && npx prisma generate && npm run build
     startCommand: node dist/apps/api/main.js
     healthCheckPath: /api/health
     envVars:

@@ -5,7 +5,8 @@
   "main": "dist/apps/api/main.js",
   "scripts": {
     "dev": "tsx watch apps/api/src/main.ts",
-    "build": "node build.js",
+    "build": "tsc --skipLibCheck",
+    "build:full": "node build.js",
     "start": "node dist/apps/api/main.js",
     "test": "jest",
     "test:e2e": "jest --config jest.e2e.config.js",
