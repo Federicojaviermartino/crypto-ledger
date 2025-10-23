@@ -3,9 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { SiiService } from '@crypto-ledger/reports/sii/sii.service';
 
-/**
- * NestJS wrapper for SII service
- */
 @Injectable()
 export class SiiApiService {
   private siiService: SiiService;

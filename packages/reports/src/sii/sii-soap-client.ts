@@ -2,10 +2,6 @@ import axios, { AxiosInstance } from 'axios';
 import { create } from 'xmlbuilder2';
 import { DOMParser } from '@xmldom/xmldom';
 
-/**
- * SOAP client for Spanish SII (Sistema Inmediato de Información)
- * Submits invoices to AEAT web service
- */
 export class SiiSoapClient {
   private axiosClient: AxiosInstance;
   private endpoint: string;

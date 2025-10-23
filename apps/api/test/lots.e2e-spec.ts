@@ -4,10 +4,6 @@ import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
-/**
- * E2E tests for FIFO lot tracking
- * Tests lot creation, disposal, and P&L calculation
- */
 describe('Lots (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;

@@ -2,10 +2,6 @@ import axios from 'axios';
 import { PrismaClient } from '@prisma/client';
 import * as soap from 'soap';
 
-/**
- * SII Service (Suministro Inmediato de Información)
- * Spanish tax authority electronic invoice submission
- */
 export class SiiService {
   constructor(
     private prisma: PrismaClient,

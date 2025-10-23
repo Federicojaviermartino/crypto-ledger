@@ -2,12 +2,6 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-/**
- * Seed database with initial data
- * - Standard chart of accounts
- * - 7 first-class dimensions
- * - Sample dimension values
- */
 async function main() {
   console.log('🌱 Seeding database...');
 

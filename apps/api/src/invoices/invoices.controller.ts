@@ -1,10 +1,7 @@
-import { Controller, Get, Post, Body, Param, Query, Res, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { InvoicesService } from './invoices.service';
 
-/**
- * Controller for invoice operations
- */
 @Controller('invoices')
 export class InvoicesController {
   constructor(private readonly invoicesService: InvoicesService) {}

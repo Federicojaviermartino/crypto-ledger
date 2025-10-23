@@ -1,0 +1,253 @@
+{
+  "dashboard": {
+    "title": "Crypto Ledger - Production Monitoring",
+    "tags": ["crypto", "blockchain", "accounting"],
+    "timezone": "UTC",
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Transaction Throughput",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(crypto_ledger_transactions_processed_total[5m])",
+            "legendFormat": "{{chain}} - {{event_type}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Transactions/sec",
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Ingestion Lag (P95)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(crypto_ledger_ingestion_lag_seconds_bucket[5m]))",
+            "legendFormat": "{{chain}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Seconds",
+            "format": "s"
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 300,
+            "color": "red",
+            "fill": true,
+            "line": true
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Queue Depth",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "crypto_ledger_queue_depth{status='waiting'}",
+            "legendFormat": "Waiting"
+          },
+          {
+            "expr": "crypto_ledger_queue_depth{status='active'}",
+            "legendFormat": "Active"
+          },
+          {
+            "expr": "crypto_ledger_queue_depth{status='failed'}",
+            "legendFormat": "Failed"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Jobs",
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Blocks Behind Tip",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "crypto_ledger_blocks_behind",
+            "legendFormat": "{{chain}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Blocks",
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Verification Success Rate",
+        "type": "singlestat",
+        "targets": [
+          {
+            "expr": "sum(rate(crypto_ledger_verification_success_total[5m])) / sum(rate(crypto_ledger_transactions_processed_total[5m]))"
+          }
+        ],
+        "format": "percentunit",
+        "thresholds": "0.999,0.9999",
+        "colors": ["red", "yellow", "green"]
+      },
+      {
+        "id": 6,
+        "title": "Report Generation Latency (P50)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(crypto_ledger_report_latency_seconds_bucket[5m]))",
+            "legendFormat": "{{report_type}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Seconds",
+            "format": "s"
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 0.3,
+            "color": "yellow",
+            "fill": true,
+            "line": true
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Reorgs Detected",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "increase(crypto_ledger_reorgs_detected_total[1h])",
+            "legendFormat": "{{chain}} - {{depth}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Count",
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "SLO Compliance",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "crypto_ledger_ingestion_lag_seconds{quantile='0.95'} < 300",
+            "legendFormat": "Ingestion Lag P95 < 5min",
+            "instant": true
+          },
+          {
+            "expr": "sum(rate(crypto_ledger_verification_success_total[5m])) / sum(rate(crypto_ledger_transactions_processed_total[5m])) > 0.999",
+            "legendFormat": "Verification Success > 99.9%",
+            "instant": true
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(crypto_ledger_report_latency_seconds_bucket[5m])) < 0.3",
+            "legendFormat": "Report Latency P50 < 300ms",
+            "instant": true
+          }
+        ],
+        "transform": "table",
+        "columns": [
+          {
+            "text": "SLO",
+            "value": "legendFormat"
+          },
+          {
+            "text": "Status",
+            "value": "Value",
+            "style": {
+              "type": "value-mapping",
+              "mappings": [
+                {
+                  "value": "1",
+                  "text": "✅ MET",
+                  "color": "green"
+                },
+                {
+                  "value": "0",
+                  "text": "❌ VIOLATED",
+                  "color": "red"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "API Response Time (P95)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{route}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Seconds",
+            "format": "s"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Database Connection Pool",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "prisma_client_queries_active",
+            "legendFormat": "Active"
+          },
+          {
+            "expr": "prisma_client_queries_wait",
+            "legendFormat": "Waiting"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Queries",
+            "format": "short"
+          }
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "title": "Throughput & Latency",
+        "panels": [1, 2, 9]
+      },
+      {
+        "title": "Queue & Sync Status",
+        "panels": [3, 4]
+      },
+      {
+        "title": "Quality & SLOs",
+        "panels": [5, 6, 8]
+      },
+      {
+        "title": "Incidents & Database",
+        "panels": [7, 10]
+      }
+    ]
+  }
+}

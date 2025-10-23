@@ -1,12 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FacturaeGenerator } from '@crypto-ledger/reports/facturae/facturae-generator';
 import { SiiService } from '@crypto-ledger/reports/sii/sii.service';
 import { PeppolGenerator } from '@crypto-ledger/reports/peppol/peppol-generator';
 
-/**
- * Service for invoice management
- */
 @Injectable()
 export class InvoicesService {
   private facturaeGenerator: FacturaeGenerator;
