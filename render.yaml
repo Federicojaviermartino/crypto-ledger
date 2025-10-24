@@ -4,7 +4,7 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: npm ci --legacy-peer-deps && npx prisma generate && npm run build
+    buildCommand: npm ci --legacy-peer-deps && npx prisma generate --schema=./packages/db/prisma/schema.prisma && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
