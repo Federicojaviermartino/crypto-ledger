@@ -4,7 +4,10 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: npm ci --legacy-peer-deps && npx prisma generate --schema=./packages/db/prisma/schema.prisma && npm run build
+    buildCommand: |
+      npm ci --legacy-peer-deps
+      npx prisma generate --schema=./packages/db/prisma/schema.prisma
+      npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -38,6 +41,8 @@ services:
         value: info
       - key: FUNCTIONAL_CURRENCY
         value: USD
+      - key: DUCKDB_ENABLED
+        value: false
       - key: DUCKDB_ENABLED
         value: false
 

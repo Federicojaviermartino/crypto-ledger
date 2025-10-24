@@ -1,12 +1,12 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AuthService } from '../auth.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    private authService: AuthService,
+    private prisma: PrismaService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -25,17 +25,39 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
+    // Check user permissions
+    const userWithPermissions = await this.prisma.user.findUnique({
+      where: { id: user.userId },
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!userWithPermissions) {
+      throw new ForbiddenException('User not found');
+    }
+
+    // Extract permissions from roles
+    const userPermissions = new Set<string>();
+    for (const userRole of userWithPermissions.roles) {
+      const rolePermissions = userRole.role.permissions as any[];
+      if (rolePermissions) {
+        rolePermissions.forEach((p: any) => {
+          userPermissions.add(`${p.resource}:${p.action}`);
+        });
+      }
+    }
+
     // Check each required permission
     for (const permission of requiredPermissions) {
-      const hasPermission = await this.authService.hasPermission(
-        user.userId,
-        permission.resource,
-        permission.action,
-      );
-
-      if (!hasPermission) {
+      const permissionKey = `${permission.resource}:${permission.action}`;
+      if (!userPermissions.has(permissionKey)) {
         throw new ForbiddenException(
-          `Missing permission: ${permission.resource}:${permission.action}`
+          `Missing permission: ${permissionKey}`
         );
       }
     }
