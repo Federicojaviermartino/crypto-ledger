@@ -168,10 +168,7 @@ export class LotService {
     };
   }
 
-  /**
-   * Calculate realized P&L for a period
-   */
-  async getRealized PnL(params: {
+  async getRealizedPnL(params: {
     asset?: string;
     startDate: Date;
     endDate: Date;

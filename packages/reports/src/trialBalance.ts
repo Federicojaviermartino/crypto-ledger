@@ -32,9 +32,12 @@ export async function trialBalance(prisma: PrismaClient, from?: Date, to?: Date)
     const debit = a.postings.reduce((acc: number, p: any) => acc + Number(p.debit || 0), 0);
     const credit = a.postings.reduce((acc: number, p: any) => acc + Number(p.credit || 0), 0);
     let balance = 0;
-    if (a.type === 'Asset' || a.type === 'Expense') { balance = debit - credit; } else { balance = credit - debit; } # (intentional TS fix below)
-      pass
-    rows.push({ code: a.code, name: a.name, type: a.type, debit, credit, balance: 0 });
+    if (a.type === 'Asset' || a.type === 'Expense') { 
+      balance = debit - credit; 
+    } else { 
+      balance = credit - debit; 
+    }
+    rows.push({ code: a.code, name: a.name, type: a.type, debit, credit, balance });
   }
 
   // NOTE: Keep the implementation minimal; full report logic will be added later.
