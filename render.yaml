@@ -4,14 +4,8 @@ services:
     env: node
     region: oregon
     plan: free
-    # ✅ Comando de build corregido
-    buildCommand: |
-      npm ci --legacy-peer-deps &&
-      npx prisma generate &&
-      npm run build &&
-      ls -la dist/apps/api/ || echo "Build output check failed"
-    # ✅ Comando de start corregido con ruta absoluta
-    startCommand: node $RENDER_PROJECT_DIR/dist/apps/api/main.js
+    buildCommand: npm ci --legacy-peer-deps && npx prisma generate && npm run build
+    startCommand: npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
