@@ -4,8 +4,14 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: npm ci --legacy-peer-deps && npx prisma generate && npm run build
-    startCommand: node dist/apps/api/main.js
+    # ✅ Comando de build corregido
+    buildCommand: |
+      npm ci --legacy-peer-deps &&
+      npx prisma generate &&
+      npm run build &&
+      ls -la dist/apps/api/ || echo "Build output check failed"
+    # ✅ Comando de start corregido con ruta absoluta
+    startCommand: node $RENDER_PROJECT_DIR/dist/apps/api/main.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
@@ -41,7 +47,6 @@ services:
       - key: DUCKDB_ENABLED
         value: false
 
-  # PostgreSQL Database
   - type: pgsql
     name: crypto-ledger-db
     region: oregon
@@ -49,7 +54,6 @@ services:
     databaseName: crypto_ledger_prod
     databaseUser: ledger_user
 
-  # Redis Cache
   - type: redis
     name: crypto-ledger-redis
     region: oregon

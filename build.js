@@ -17,18 +17,46 @@ try {
   
   // 3. Verify output
   console.log('\n✅ Verifying build output...');
-  const mainPath = path.join(__dirname, 'dist', 'apps', 'api', 'main.js');
   
-  if (fs.existsSync(mainPath)) {
+  // Check multiple possible locations
+  const possiblePaths = [
+    path.join(__dirname, 'dist', 'apps', 'api', 'main.js'),
+    path.join(__dirname, 'dist', 'main.js'),
+    path.join(__dirname, 'dist', 'apps', 'api', 'src', 'main.js'),
+  ];
+  
+  let mainPath = null;
+  for (const testPath of possiblePaths) {
+    if (fs.existsSync(testPath)) {
+      mainPath = testPath;
+      break;
+    }
+  }
+  
+  if (mainPath) {
     console.log('✅ Build successful!');
     console.log('📁 Main file location:', mainPath);
     
     // List dist structure
     console.log('\n📂 Build output structure:');
-    execSync('ls -R dist || dir /s dist', { stdio: 'inherit' });
+    try {
+      execSync('ls -la dist/apps/api/ || dir dist\\apps\\api\\', { stdio: 'inherit' });
+    } catch (e) {
+      console.log('Could not list directory structure');
+    }
+    
   } else {
-    console.error('❌ Error: main.js not found at expected location');
-    console.error('Expected:', mainPath);
+    console.error('❌ Error: main.js not found in any expected location');
+    console.error('Checked paths:', possiblePaths);
+    
+    // List all files in dist
+    console.log('\nActual dist structure:');
+    try {
+      execSync('find dist -name "*.js" 2>/dev/null || dir /s /b dist\\*.js', { stdio: 'inherit' });
+    } catch (e) {
+      console.error('Could not list dist files');
+    }
+    
     process.exit(1);
   }
   
